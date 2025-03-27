@@ -1,0 +1,103 @@
+Sub CountAttendanceInRange()
+    Dim ws As Worksheet
+    Dim nameInput As String, classInput As String
+    Dim lastRow As Long, lastCol As Long
+    Dim foundRow As Range
+    Dim count1s As Integer, count2s As Integer, countVRO As Integer, count4s As Integer
+    Dim i As Integer, j As Integer
+    Dim fullName As String
+    Dim newWs As Worksheet
+    Dim sheetExists As Boolean
+    Dim newRow As Long
+    
+    ' Set the active worksheet
+    Set ws = ActiveSheet
+    
+    ' Prompt user for Name and Class
+    nameInput = LCase(InputBox("Enter the student's partial/full name and class (separated by a comma, e.g., John, Class 1):"))
+    
+    ' Split the input into name and class
+    Dim inputParts() As String
+    inputParts = Split(nameInput, ",")
+    If UBound(inputParts) <> 1 Then
+        MsgBox "Invalid input format! Please enter as 'Name, Class'.", vbExclamation, "Error"
+        Exit Sub
+    End If
+    
+    nameInput = Trim(inputParts(0))
+    classInput = Trim(inputParts(1))
+    
+    ' Find the row containing the given name (partial match) and class
+    lastRow = ws.Cells(Rows.count, 2).End(xlUp).Row ' Find last row in column B
+    lastCol = ws.Cells(2, Columns.count).End(xlToLeft).Column ' Find last used column in row 2
+    
+    Set foundRow = Nothing
+    For i = 2 To lastRow ' Assuming row 1 is headers
+        fullName = LCase(ws.Cells(i, 2).Value)
+        If InStr(1, fullName, nameInput, vbTextCompare) > 0 And LCase(ws.Cells(i, 3).Value) = LCase(classInput) Then
+            Set foundRow = ws.Rows(i)
+            Exit For
+        End If
+    Next i
+    
+    ' If the student is found, count occurrences of "1", "2", "VRO", and "4" from column E to last column
+    If Not foundRow Is Nothing Then
+        count1s = 0
+        count2s = 0
+        countVRO = 0
+        count4s = 0
+        For j = 5 To lastCol ' Assuming data starts from column E
+            ' Skip column if the value in row 2 is "#"
+            If ws.Cells(2, j).Value <> "#" Then
+                If ws.Cells(foundRow.Row, j).Value = 1 Then
+                    count1s = count1s + 1
+                ElseIf ws.Cells(foundRow.Row, j).Value = 2 Then
+                    count2s = count2s + 1
+                ElseIf InStr(1, LCase(ws.Cells(foundRow.Row, j).Value), "vro", vbTextCompare) > 0 Then
+                    countVRO = countVRO + 1
+                ElseIf ws.Cells(foundRow.Row, j).Value = 4 Then
+                    count4s = count4s + 1
+                End If
+            End If
+        Next j
+        
+        ' Check if "Attendance Sheet" already exists
+        sheetExists = False
+        For Each newWs In ThisWorkbook.Sheets
+            If newWs.Name = "Attendance Sheet" Then
+                sheetExists = True
+                Exit For
+            End If
+        Next newWs
+        
+        ' Create new sheet if not exists
+        If Not sheetExists Then
+            Set newWs = ThisWorkbook.Sheets.Add
+            newWs.Name = "Attendance Sheet"
+            newWs.Cells(1, 1).Value = "Name"
+            newWs.Cells(1, 2).Value = "Class"
+            newWs.Cells(1, 3).Value = "Count of 1s"
+            newWs.Cells(1, 4).Value = "Count of 2s"
+            newWs.Cells(1, 5).Value = "Count of VRO"
+            newWs.Cells(1, 6).Value = "Count of 4s"
+        Else
+            Set newWs = ThisWorkbook.Sheets("Attendance Sheet")
+        End If
+        
+        ' Find the next available row in the new sheet
+        newRow = newWs.Cells(newWs.Rows.count, 1).End(xlUp).Row + 1
+        
+        ' Insert the result into the new sheet
+        newWs.Cells(newRow, 1).Value = ws.Cells(foundRow.Row, 2).Value
+        newWs.Cells(newRow, 2).Value = ws.Cells(foundRow.Row, 3).Value
+        newWs.Cells(newRow, 3).Value = count1s
+        newWs.Cells(newRow, 4).Value = count2s
+        newWs.Cells(newRow, 5).Value = countVRO
+        newWs.Cells(newRow, 6).Value = count4s
+        
+        ' Display the result
+        MsgBox ws.Cells(foundRow.Row, 2).Value & " (Class " & ws.Cells(foundRow.Row, 3).Value & ") was present " & count2s & " times, had 'VRO' " & countVRO & " times, had '1' " & count1s & " times, and had '4' " & count4s & " times. Results added to 'Attendance Sheet'.", vbInformation, "Attendance Count"
+    Else
+        MsgBox "Student not found!", vbExclamation, "Error"
+    End If
+End Sub
